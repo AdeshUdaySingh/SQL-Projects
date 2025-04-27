@@ -1,0 +1,104 @@
+1) How many customers have done transactions over 49000?
+SELECT 
+COUNT(DISTINCT cust_id) AS total_customers
+FROM transaction_base tb
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+WHERE tb.transaction_value > 49000;
+
+2) What kind of customers can get a Premium credit card?
+SELECT 
+DISTINCT customer.customer_segment
+FROM card_base card
+JOIN customer_base customer ON customer.cust_id = card.cust_id
+WHERE card.card_family = 'Premium';
+
+3) Identify the range of credit limit of customer who have done fraudulent 
+transactions.
+SELECT 
+MIN(cb.credit_limit) AS min_limit, MAX(cb.credit_limit) AS max_limit
+FROM transaction_base tb
+JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+WHERE fb.fraud_flag = 1;
+
+4) What is the average age of customers who are involved in fraud transactions 
+based on different card type?
+SELECT 
+cb.card_family AS card_type, ROUND(AVG(cust.age)) AS average_age
+FROM transaction_base tb
+JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+JOIN customer_base cust ON cust.cust_id = cb.cust_id
+WHERE fb.fraud_flag = 1
+GROUP BY cb.card_family;
+
+5) Identify the month when highest no of fraudulent transactions occured.
+SELECT 
+extract (month FROM transaction_date) AS month, COUNT(*) AS no_of_transactions
+FROM transaction_base tb
+JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+GROUP BY month
+ORDER BY no_of_transactions DESC
+LIMIT 1;
+
+6) Identify the customer who has done the most transaction value without involving in any fraudulent transactions.
+SELECT 
+cust.cust_id AS customer, SUM(tb.transaction_value) AS total_spend
+FROM transaction_base tb
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+JOIN customer_base cust ON cust.cust_id = cb.cust_id
+LEFT JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+WHERE fb.fraud_flag IS NULL
+GROUP BY cust.cust_id
+ORDER BY total_spend DESC
+LIMIT 1;
+
+7) Check and return any customers who have not done a single transaction.
+SELECT
+DISTINCT cust_id
+FROM customer_base
+WHERE cust_id NOT IN 
+		(SELECT 
+		cb.cust_id
+		FROM transaction_base tb
+		JOIN card_base cb ON cb.card_number = tb.credit_card_id);
+
+8) What is the highest and lowest credit limit given to each card type?
+SELECT 
+card_family, MIN(credit_limit) AS min_limit, MAX(credit_limit) AS max_limit 
+FROM card_base
+GROUP BY card_family;
+
+9) What is the total value of transactions done by customers who come under the age bracket of 0-20 yrs, 21-30 yrs, 31-40 yrs, 41-50 yrs, 51 yrs & above.
+SELECT 
+SUM(CASE WHEN cust.age > 0 AND cust.age <= 20 THEN tb.transaction_value ELSE 0 END) AS trn_0_20,
+SUM(CASE WHEN cust.age >= 21 AND cust.age <= 30 THEN tb.transaction_value ELSE 0 END) AS trn_21_30,
+SUM(CASE WHEN cust.age >= 31 AND cust.age <= 40 THEN tb.transaction_value ELSE 0 END) AS trn_31_40,
+SUM(CASE WHEN cust.age >= 41 AND cust.age <= 50 THEN tb.transaction_value ELSE 0 END) AS trn_41_50,
+SUM(CASE WHEN cust.age >= 51 THEN tb.transaction_value ELSE 0 END) AS trn_50
+FROM transaction_base tb
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+JOIN customer_base cust ON cust.cust_id = cb.cust_id;
+
+10) Which card type has done the most no of transactions and the total highest value of transactions without having any fraudulent transactions.
+(SELECT 
+cb.card_family, COUNT(tb.transaction_value) AS value, 'HIGHEST NO' AS type
+FROM transaction_base tb
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+JOIN customer_base cust ON cust.cust_id = cb.cust_id
+LEFT JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+WHERE fb.fraud_flag IS NULL
+GROUP BY cb.card_family
+ORDER BY value DESC 
+LIMIT 1)
+UNION
+(SELECT 
+cb.card_family, SUM(tb.transaction_value) AS value, 'HIGHEST VALUE' AS type
+FROM transaction_base tb
+JOIN card_base cb ON cb.card_number = tb.credit_card_id
+JOIN customer_base cust ON cust.cust_id = cb.cust_id
+LEFT JOIN fraud_base fb ON fb.transaction_id = tb.transaction_id
+WHERE fb.fraud_flag IS NULL
+GROUP BY cb.card_family
+ORDER BY value DESC 
+LIMIT 1);
